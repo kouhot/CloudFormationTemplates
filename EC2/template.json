@@ -1,0 +1,119 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "EC2 Template",
+  "Parameters": {
+    "ProjectName": {
+      "Type": "String",
+      "Default": "Default"
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "InstanceTenancy": "default",
+        "Tags": [{ "Key": "Name", "Value": "VPC" }]
+      }
+    },
+    "Subnet": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "CidrBlock": "10.0.1.0/24",
+        "AvailabilityZone": "ap-northeast-1a",
+        "MapPublicIpOnLaunch": "true",
+        "Tags": [{ "Key": "Name", "Value": "Subnet" }]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [{ "Key": "Name", "Value": "InternetGateway" }]
+      }
+    },
+    "AttachGateway": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "InternetGatewayId": { "Ref": "InternetGateway" }
+      }
+    },
+    "RouteTable": {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": { "Ref" : "VPC" },
+        "Tags": [ { "Key" : "Name", "Value" : "RouteTable" } ]
+      }
+    },
+    "InternetRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": { "Ref" : "RouteTable" },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": { "Ref" : "InternetGateway" }
+      }
+    },
+    "SubnetRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": { "Ref": "Subnet" },
+        "RouteTableId": { "Ref": "RouteTable" }
+      }
+    },
+    "EC2Instance": {
+      "Type": "AWS::EC2::Instance",
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "configSets": {
+            "Install": [ "Install" ]
+          },
+          "Install": {
+            "packages": {
+              "yum": {
+                "mysql": []
+              }
+            }
+          }
+        }
+      },
+      "Properties": {
+        "AvailabilityZone": "ap-northeast-1a",
+        "ImageId": "ami-3bd3c45c",
+        "InstanceType" : "t2.micro",
+        "KeyName" : "omnia_api_key",
+        "SecurityGroupIds" : [
+          { "Fn::GetAtt": [ "WebSecurityGroup" , "GroupId" ] },
+          { "Fn::GetAtt": [ "SSHSecurityGroup" , "GroupId" ] }
+        ],
+        "SubnetId" : { "Ref" : "Subnet" },
+        "Tags" : [{ "Key" : "Name", "Value" : "EC2Instance" }],
+        "Tenancy" : "default",
+        "PrivateIpAddress": "10.0.1.10"
+      }
+    },
+    "SSHSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "GroupDescription": "Enable SSH access via port 22",
+        "SecurityGroupIngress": [
+          { "IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": "0.0.0.0/0" }
+        ],
+        "Tags": [{ "Key": "Name", "Value": "SSHSg" }]
+      }
+    },
+    "WebSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "GroupDescription": "Public Security Group with HTTP access on port 443 from the internet",
+        "SecurityGroupIngress": [
+          { "IpProtocol": "tcp", "FromPort": "80", "ToPort": "80", "CidrIp": "0.0.0.0/0" },
+          { "IpProtocol": "tcp", "FromPort": "443", "ToPort": "443", "CidrIp": "0.0.0.0/0" }
+        ],
+        "Tags": [{ "Key" : "Name", "Value" : "WEBSg" }]
+      }
+    }
+  }
+}
